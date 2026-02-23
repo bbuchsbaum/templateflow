@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+*.Rcheck/
+.rcmdcheck_result.rds
+.omc/
+docs/
+python-client/
+inst/doc

@@ -1,0 +1,39 @@
+Package: templateflow
+Type: Package
+Title: Client for the 'TemplateFlow' Archive
+Version: 0.1.0
+Authors@R: c(
+    person("Bradley", "Buchsbaum", email = "brad.buchsbaum@gmail.com", role = c("aut", "cre")),
+    person("NiPreps", role = c("aut", "cph")),
+    person("OpenAI Codex", role = "aut")
+  )
+Maintainer: Bradley Buchsbaum <brad.buchsbaum@gmail.com>
+Description: R client for querying and fetching resources from the TemplateFlow
+    archive using a local cache backed by the public TemplateFlow S3 bucket.
+    Provides functions to list template assets, download missing files, read
+    template metadata, and retrieve citations.
+Depends: R (>= 4.1.0)
+License: Apache License (>= 2)
+URL: https://github.com/bbuchsbaum/templateflow
+BugReports: https://github.com/bbuchsbaum/templateflow/issues
+Encoding: UTF-8
+Imports:
+    cli,
+    httr2 (>= 1.0.0),
+    jsonlite,
+    rappdirs,
+    rlang
+Suggests:
+    aws.s3,
+    bidser,
+    gifti,
+    knitr,
+    oro.nifti,
+    rmarkdown,
+    RNifti,
+    testthat (>= 3.0.0),
+    tibble,
+    withr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+RoxygenNote: 7.3.3

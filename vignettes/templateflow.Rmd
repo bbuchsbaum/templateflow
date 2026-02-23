@@ -1,0 +1,68 @@
+---
+title: "templateflow R client"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{templateflow R client}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+`templateflow` provides a lightweight R interface to the TemplateFlow archive, backed by a local cache (default: `~/.cache/templateflow` or `TEMPLATEFLOW_HOME`). It lists and fetches template assets directly from the public S3 bucket—no Python or reticulate required.
+
+## Installation
+
+```{r install, eval=FALSE}
+# In development:
+# remotes::install_local(".")
+```
+
+## Quick start
+
+```{r quickstart, eval=FALSE}
+library(templateflow)
+
+# Create a client (uses ~/.cache/templateflow by default)
+tf <- TemplateFlowClient()
+
+# List templates
+tf_templates(tf)
+
+# List files for a template
+tf_ls(tf, template = "MNI152Lin", resolution = 1, suffix = "T1w")
+
+# Fetch a specific file (downloads if missing)
+path <- tf_get(tf, template = "MNI152Lin", resolution = 1, suffix = "T1w")
+path
+
+# Read template metadata
+meta <- tf_get_metadata(tf, "MNI152Lin")
+meta$Name
+
+# Citations (URLs or BibTeX)
+tf_get_citations(tf, "MNI152NLin2009cAsym")
+tf_get_citations(tf, "MNI152NLin2009cAsym", bibtex = TRUE)
+```
+
+## CLI wrapper
+
+For scripting, a minimal CLI-style helper is available:
+
+```{r cli, eval=FALSE}
+tf_cli(c("ls", "MNI152Lin", "--res", "1", "--suffix", "T1w"))
+tf_cli(c("--root", "/tmp/tf-cache", "config"))
+```
+
+## Configuration
+
+- `TEMPLATEFLOW_HOME` sets the cache root.
+- `TEMPLATEFLOW_AUTOUPDATE` (`on`/`off`) controls whether skeleton updates overwrite existing cache stubs.
+- Downloads use `aws.s3` if installed; otherwise HTTPS.

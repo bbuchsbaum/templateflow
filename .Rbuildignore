@@ -1,0 +1,12 @@
+^\.Rproj$
+^\.Rhistory$
+^\.RData$
+^\.DS_Store$
+^vignettes/.*\.html$
+^vignettes/.*\.Rmd\.orig$
+^python-client$
+^\.omc$
+^AGENTS\.md$
+^_pkgdown\.yml$
+^docs$
+^\.rcmdcheck_result\.rds$

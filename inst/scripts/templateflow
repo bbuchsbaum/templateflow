@@ -1,0 +1,26 @@
+#!/usr/bin/env Rscript
+
+status <- tryCatch(
+  {
+    templateflow::tf_cli()
+    0L
+  },
+  tf_cli_error = function(e) {
+    message(e$message)
+    e$exit_code %||% 1L
+  },
+  templateflow_error = function(e) {
+    message(e$message)
+    1L
+  },
+  error = function(e) {
+    message(e$message)
+    1L
+  }
+)
+
+if (!interactive()) {
+  quit(status = status, save = "no")
+}
+
+invisible(status)
