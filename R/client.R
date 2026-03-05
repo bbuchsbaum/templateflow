@@ -77,6 +77,12 @@ print.TemplateFlowClient <- function(x, ...) {
 #' Python client's behaviour where `desc=None` filters out files with a
 #' description tag.
 #'
+#' Tissue priors can be queried with `label` aliases `gray`, `grey`, `white`,
+#' and `csf` (or `gm`/`wm`) — these are normalized to `GM`, `WM`, and `CSF`.
+#' For templates that store tissue priors under `desc-*` instead of `label-*`,
+#' a tissue-prior label query automatically falls back to `desc` if no files
+#' are found and `desc` was not explicitly provided.
+#'
 #' @param client A `TemplateFlowClient` (optional; default global client).
 #' @param template Template identifier (e.g., `"MNI152Lin"`).
 #' @param as_df If `TRUE`, return a data frame instead of file paths.
@@ -105,16 +111,37 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
   if ("extension" %in% names(filters)) {
     filters$extension <- tf_normalize_ext(filters$extension)
   }
+  if ("label" %in% names(filters)) {
+    filters$label <- tf_normalize_tissue_label(filters$label)
+  }
+
+  query_layout <- function(query_filters, return_type) {
+    args <- c(list(layout = cache$layout, return_type = return_type), query_filters)
+    do.call(tf_layout_get, args)
+  }
+
+  return_type <- if (isTRUE(as_df)) "data.frame" else "file"
+  result <- query_layout(filters, return_type)
+
+  has_result <- if (isTRUE(as_df)) nrow(result) > 0 else length(result) > 0
+  has_label <- "label" %in% names(filters) && !is.null(filters$label)
+  has_desc <- "desc" %in% names(filters) && !is.null(filters$desc)
+
+  if (!has_result && has_label && !has_desc && tf_is_tissue_label_query(filters$label)) {
+    fallback_filters <- filters
+    fallback_filters$desc <- fallback_filters$label
+    fallback_filters$label <- NULL
+    result <- query_layout(fallback_filters, return_type)
+  }
+
   if (isTRUE(as_df)) {
-    args <- c(list(layout = cache$layout, return_type = "data.frame"), filters)
-    df <- do.call(tf_layout_get, args)
+    df <- result
     if (requireNamespace("tibble", quietly = TRUE)) {
       return(tibble::as_tibble(df))
     }
     return(df)
   }
-  args <- c(list(layout = cache$layout, return_type = "file"), filters)
-  paths <- do.call(tf_layout_get, args)
+  paths <- result
   normalizePath(paths, winslash = "/", mustWork = FALSE)
 }
 

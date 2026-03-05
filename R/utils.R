@@ -8,6 +8,24 @@ tf_normalize_ext <- function(x) {
   }, character(1), USE.NAMES = FALSE)
 }
 
+tf_normalize_tissue_label <- function(x) {
+  if (is.null(x)) return(NULL)
+  vapply(x, function(val) {
+    if (is.na(val) || val == "") return(val)
+    key <- tolower(as.character(val))
+    if (key %in% c("gm", "gray", "grey")) return("GM")
+    if (key %in% c("wm", "white")) return("WM")
+    if (key == "csf") return("CSF")
+    as.character(val)
+  }, character(1), USE.NAMES = FALSE)
+}
+
+tf_is_tissue_label_query <- function(x) {
+  if (is.null(x) || !length(x)) return(FALSE)
+  normalized <- tf_normalize_tissue_label(x)
+  all(!is.na(normalized) & normalized %in% c("GM", "WM", "CSF"))
+}
+
 tf_is_xml_error <- function(path) {
   if (!file.exists(path)) return(FALSE)
   info <- file.info(path)
