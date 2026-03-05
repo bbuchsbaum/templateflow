@@ -49,3 +49,27 @@ test_that("tissue label queries fall back to desc when needed", {
   expect_length(tissue_paths, 3)
   expect_true(all(grepl("desc-(GM|WM|CSF)_probseg\\.nii\\.gz$", basename(tissue_paths))))
 })
+
+test_that("non-tissue label queries fall back to desc for mask and probseg", {
+  client <- make_prior_client("non-tissue-desc-fallback")
+
+  brain_mask <- tf_ls(
+    client,
+    template = "MNI152NLin2009cAsym",
+    resolution = 1,
+    suffix = "mask",
+    label = "brain"
+  )
+  expect_length(brain_mask, 1)
+  expect_match(basename(brain_mask), "desc-brain_mask\\.nii\\.gz$")
+
+  whs_probseg <- tf_ls(
+    client,
+    template = "WHS",
+    resolution = 2,
+    suffix = "probseg",
+    label = "brain"
+  )
+  expect_length(whs_probseg, 1)
+  expect_match(basename(whs_probseg), "desc-brain_probseg\\.nii\\.gz$")
+})

@@ -126,8 +126,11 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
   has_result <- if (isTRUE(as_df)) nrow(result) > 0 else length(result) > 0
   has_label <- "label" %in% names(filters) && !is.null(filters$label)
   has_desc <- "desc" %in% names(filters) && !is.null(filters$desc)
+  suffix_fallback <- "suffix" %in% names(filters) &&
+    tf_suffix_allows_label_desc_fallback(filters$suffix)
+  label_desc_fallback <- tf_is_tissue_label_query(filters$label) || suffix_fallback
 
-  if (!has_result && has_label && !has_desc && tf_is_tissue_label_query(filters$label)) {
+  if (!has_result && has_label && !has_desc && label_desc_fallback) {
     fallback_filters <- filters
     fallback_filters$desc <- fallback_filters$label
     fallback_filters$label <- NULL
