@@ -13,8 +13,9 @@ Description: R client for querying and fetching resources from the TemplateFlow
     Provides functions to list template assets, download missing files, read
     template metadata, and retrieve citations.
 Depends: R (>= 4.1.0)
-License: Apache License (>= 2)
-URL: https://github.com/bbuchsbaum/templateflow
+License: Apache License (>= 2) | file LICENSE
+URL: https://bbuchsbaum.github.io/templateflow/,
+    https://github.com/bbuchsbaum/templateflow
 BugReports: https://github.com/bbuchsbaum/templateflow/issues
 Encoding: UTF-8
 Imports:
@@ -29,6 +30,7 @@ Suggests:
     gifti,
     knitr,
     oro.nifti,
+    pkgdown,
     rmarkdown,
     RNifti,
     testthat (>= 3.0.0),
@@ -37,3 +39,4 @@ Suggests:
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
+Config/Needs/website: albersdown

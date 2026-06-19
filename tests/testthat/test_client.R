@@ -16,6 +16,22 @@ test_that("ls returns expected assets", {
   expect_true(any(grepl("tpl-MNI152Lin_res-01_T1w", paths)))
 })
 
+test_that("non-empty roots are backfilled with skeleton stubs on first use", {
+  tmp <- file.path(tempdir(), "tfclient-cache-backfill")
+  if (dir.exists(tmp)) unlink(tmp, recursive = TRUE, force = TRUE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+
+  dir.create(file.path(tmp, "manifests"), recursive = TRUE)
+  writeLines("{}", file.path(tmp, "manifests", "dummy.json"))
+
+  client <- TemplateFlowClient(root = tmp, autoupdate = FALSE)
+  paths <- tf_ls(client, template = "MNI152Lin", resolution = 1, suffix = "T1w")
+
+  expect_true(length(paths) >= 1)
+  expect_true(any(grepl("tpl-MNI152Lin_res-01_T1w", paths)))
+  expect_true(file.exists(file.path(tmp, "manifests", "dummy.json")))
+})
+
 test_that("metadata is readable", {
   tmp <- file.path(tempdir(), "tfclient-cache-meta")
   if (dir.exists(tmp)) unlink(tmp, recursive = TRUE, force = TRUE)
@@ -101,6 +117,61 @@ test_that("remote skeleton fetch falls back to bundled when unreachable", {
       expect_true(length(list.files(tmp)) > 0)
     }
   )
+})
+
+test_that("empty layout raises actionable cache error", {
+  tmp <- file.path(tempdir(), "tfclient-empty-layout")
+  if (dir.exists(tmp)) unlink(tmp, recursive = TRUE, force = TRUE)
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+
+  cfg <- tf_default_config(root = tmp, autoupdate = FALSE)
+  cache <- TemplateFlowCache(cfg)
+  cache$skeleton_synced <- TRUE
+  cache$layout <- structure(
+    list(root = tmp, index = data.frame()),
+    class = "TemplateFlowLayout"
+  )
+  client <- structure(list(cache = cache), class = "TemplateFlowClient")
+
+  expect_error(
+    tf_ls(client, template = "MNI152Lin"),
+    class = "templateflow_cache_error"
+  )
+  expect_error(
+    tf_get(client, template = "MNI152Lin", suffix = "T1w"),
+    class = "templateflow_cache_error"
+  )
+})
+
+test_that("tf_get raises by default when query is empty", {
+  tmp <- file.path(tempdir(), "tfclient-cache-raise")
+  if (dir.exists(tmp)) unlink(tmp, recursive = TRUE, force = TRUE)
+  client <- TemplateFlowClient(root = tmp)
+  expect_error(
+    tf_get(client, template = "MNI152Lin", suffix = "NONEXISTENT_SUFFIX"),
+    class = "templateflow_not_found"
+  )
+  res <- tf_get(client, template = "MNI152Lin", suffix = "NONEXISTENT_SUFFIX",
+                raise_empty = FALSE)
+  expect_length(res, 0)
+})
+
+test_that("tf_get(dest=) copies into user directory under BIDS sub-path", {
+  skip_if_offline()
+  tmp <- file.path(tempdir(), "tfclient-cache-dest")
+  if (dir.exists(tmp)) unlink(tmp, recursive = TRUE, force = TRUE)
+  client <- TemplateFlowClient(root = tmp)
+
+  out <- file.path(tempdir(), "tfclient-dest-out")
+  if (dir.exists(out)) unlink(out, recursive = TRUE, force = TRUE)
+  on.exit(unlink(out, recursive = TRUE, force = TRUE), add = TRUE)
+
+  path <- tf_get(client, template = "MNI152Lin", resolution = 1,
+                 suffix = "T1w", dest = out)
+  expect_true(file.exists(path))
+  expect_true(startsWith(normalizePath(path), normalizePath(out)))
+  expect_true(grepl("tpl-MNI152Lin", path))
+  expect_gt(file.info(path)$size, 0)
 })
 
 test_that("version matches DESCRIPTION", {

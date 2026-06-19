@@ -4,7 +4,8 @@ TemplateFlowCache <- function(config = tf_default_config()) {
   cache <- list(
     config = config,
     precached = tf_cached(config$root),
-    layout = NULL
+    layout = NULL,
+    skeleton_synced = FALSE
   )
   class(cache) <- "TemplateFlowCache"
   cache
@@ -14,16 +15,66 @@ tf_cached <- function(root) {
   file.exists(root) && length(list.files(root, all.files = TRUE, no.. = TRUE)) > 0
 }
 
+tf_cache_sync_skeleton <- function(cache, overwrite = FALSE, silent = TRUE) {
+  if (!inherits(cache, "TemplateFlowCache")) {
+    tf_abort("cache must be a TemplateFlowCache object")
+  }
+  ok <- tryCatch(
+    {
+      tf_update_skeleton(
+        cache$config$root,
+        overwrite = overwrite,
+        silent = silent,
+        timeout = cache$config$timeout,
+        local = !isTRUE(cache$config$autoupdate)
+      )
+      TRUE
+    },
+    error = function(e) {
+      tf_log("Skeleton sync failed: ", conditionMessage(e))
+      FALSE
+    }
+  )
+  cache$layout <- NULL
+  # Only mark synced when the underlying extract did not error. This lets the
+  # next call retry rather than wedging on a stale `skeleton_synced = TRUE`.
+  cache$skeleton_synced <- isTRUE(ok)
+  cache
+}
+
+tf_layout_is_empty <- function(layout) {
+  if (is.null(layout)) return(TRUE)
+  idx <- layout$index
+  is.null(idx) || NROW(idx) == 0
+}
+
 tf_cache_ensure <- function(cache) {
   if (!inherits(cache, "TemplateFlowCache")) {
     tf_abort("cache must be a TemplateFlowCache object")
   }
-  if (!tf_cached(cache$config$root)) {
+  cached <- tf_cached(cache$config$root)
+  if (!cached) {
     dir.create(cache$config$root, recursive = TRUE, showWarnings = FALSE)
-    tf_update_skeleton(cache$config$root, overwrite = TRUE, silent = FALSE, timeout = cache$config$timeout)
+  }
+  if (!isTRUE(cache$skeleton_synced)) {
+    cache <- tf_cache_sync_skeleton(cache, overwrite = FALSE, silent = cached)
   }
   cache$layout <- cache$layout %||% tf_build_layout(cache$config$root)
   cache
+}
+
+# Raise a clear, actionable error when the cache is missing its skeleton index.
+# Distinct from the "no rows match a query" path: if the *whole* layout is
+# empty, the user almost certainly hasn't run `tf_cache_update()` (or the sync
+# failed). Tell them exactly that.
+tf_assert_layout_nonempty <- function(cache, call = NULL) {
+  if (!tf_layout_is_empty(cache$layout)) return(invisible(NULL))
+  msg <- c(
+    sprintf("templateflow cache appears empty (no template skeleton found at %s).",
+            cache$config$root),
+    i = "Run `tf_cache_update()` to fetch the skeleton, or set TEMPLATEFLOW_HOME to an existing cache."
+  )
+  tf_abort_cache(msg, call = call)
 }
 
 #' Update template cache
@@ -43,15 +94,15 @@ tf_cache_ensure <- function(cache) {
 #' @export
 tf_cache_update <- function(cache = NULL, local = FALSE, overwrite = TRUE, silent = FALSE) {
   cache <- cache %||% tf_client()$cache
-  if (local) {
-    withr::with_options(
-      list(templateflow.test.forcebundled = TRUE),
-      tf_update_skeleton(cache$config$root, overwrite = overwrite, silent = silent, timeout = cache$config$timeout)
-    )
-  } else {
-    tf_update_skeleton(cache$config$root, overwrite = overwrite, silent = silent, timeout = cache$config$timeout)
-  }
+  tf_update_skeleton(
+    cache$config$root,
+    overwrite = overwrite,
+    silent = silent,
+    timeout = cache$config$timeout,
+    local = local
+  )
   cache$layout <- NULL
+  cache$skeleton_synced <- TRUE
   invisible(cache)
 }
 
@@ -73,6 +124,7 @@ tf_cache_wipe <- function(cache = NULL) {
     return(invisible(cache))
   }
   cache$layout <- NULL
+  cache$skeleton_synced <- FALSE
   if (dir.exists(cache$config$root)) {
     unlink(cache$config$root, recursive = TRUE, force = TRUE)
   }
@@ -207,9 +259,9 @@ tf_fetch_remote_zip <- function(timeout) {
   tmp
 }
 
-tf_latest_skeleton <- function(timeout) {
+tf_latest_skeleton <- function(timeout, local = FALSE) {
   # Allow tests to force bundled without hitting network
-  if (isTRUE(getOption("templateflow.test.forcebundled", FALSE))) {
+  if (isTRUE(local) || isTRUE(getOption("templateflow.test.forcebundled", FALSE))) {
     return(list(path = tf_skeleton_zip(), cleanup = FALSE))
   }
   bundled_md5 <- tf_skeleton_md5()
@@ -224,27 +276,29 @@ tf_latest_skeleton <- function(timeout) {
   list(path = tf_skeleton_zip(), cleanup = FALSE)
 }
 
-tf_update_skeleton <- function(dest, overwrite = TRUE, silent = FALSE, timeout = 10) {
-  skel <- tf_latest_skeleton(timeout)
+tf_update_skeleton <- function(dest, overwrite = TRUE, silent = FALSE, timeout = 10, local = FALSE) {
+  skel <- tf_latest_skeleton(timeout, local = local)
   dest <- normalizePath(dest, mustWork = FALSE)
   dir.create(dest, recursive = TRUE, showWarnings = FALSE)
 
-  contents <- utils::unzip(skel$path, list = TRUE)
-  entries <- contents$Name
-
   if (!overwrite) {
-    existing <- file.exists(file.path(dest, entries))
-    entries <- entries[!existing]
-  }
-
-  if (!length(entries)) {
-    if (!silent) tf_log("TEMPLATEFLOW_HOME is up to date at ", dest)
-    if (skel$cleanup) file.remove(skel$path)
-    return(FALSE)
+    # Short-circuit when nothing is missing so we can report an up-to-date
+    # cache without extracting anything.
+    contents <- utils::unzip(skel$path, list = TRUE)
+    if (all(file.exists(file.path(dest, contents$Name)))) {
+      if (!silent) tf_log("TEMPLATEFLOW_HOME is up to date at ", dest)
+      if (skel$cleanup) file.remove(skel$path)
+      return(FALSE)
+    }
   }
 
   if (!silent) tf_log("Updating TEMPLATEFLOW_HOME at ", dest)
-  utils::unzip(skel$path, files = entries, exdir = dest, overwrite = overwrite, junkpaths = FALSE)
+  # Extract the whole archive in a single call. Passing an explicit `files=`
+  # vector (one entry per file) makes utils::unzip rescan the zip's central
+  # directory for every entry -- tens of seconds for the ~2.6k-file skeleton.
+  # With overwrite = FALSE, unzip already skips files that exist on disk, so
+  # incremental backfill still works without the per-file slow path.
+  utils::unzip(skel$path, exdir = dest, overwrite = overwrite, junkpaths = FALSE)
   if (skel$cleanup) file.remove(skel$path)
   TRUE
 }

@@ -47,7 +47,7 @@ tf_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
     }
     if (is.null(cmd) && arg %in% valid_cmds) {
       cmd <- arg
-      cmd_args <- args[seq_len(length(args))[(i + 1):length(args)]]
+      cmd_args <- args[seq_along(args)[(i + 1):length(args)]]
       if (i >= length(args)) cmd_args <- character(0)
       break
     }
@@ -129,7 +129,7 @@ tf_cli_make_client <- function(root, autoupdate) {
   )
 }
 
-tf_cli_parse_template_and_filters <- function(args, cmd_name) {
+tf_cli_parse_template_filters <- function(args, cmd_name) {
   if (length(args) && args[1] %in% c("--help", "-h")) {
     tf_cli_help_command(cmd_name)
     return(NULL)
@@ -146,7 +146,7 @@ tf_cli_parse_template_and_filters <- function(args, cmd_name) {
       i <- i + parsed$consumed
       next
     }
-    # Non-option = template
+    # A non-option argument is treated as the template
     if (is.null(template) && !startsWith(arg, "-")) {
       template <- arg
       i <- i + 1
@@ -190,7 +190,7 @@ tf_cli_config <- function(args, root = NULL, autoupdate = NULL) {
 }
 
 tf_cli_ls <- function(args, root = NULL, autoupdate = NULL) {
-  parsed <- tf_cli_parse_template_and_filters(args, "ls")
+  parsed <- tf_cli_parse_template_filters(args, "ls")
   if (is.null(parsed)) return(invisible(NULL))
 
   if (is.null(parsed$template)) {
@@ -205,7 +205,7 @@ tf_cli_ls <- function(args, root = NULL, autoupdate = NULL) {
 }
 
 tf_cli_get <- function(args, root = NULL, autoupdate = NULL) {
-  parsed <- tf_cli_parse_template_and_filters(args, "get")
+  parsed <- tf_cli_parse_template_filters(args, "get")
   if (is.null(parsed)) return(invisible(NULL))
 
   if (is.null(parsed$template)) {
@@ -396,7 +396,13 @@ tf_cli_doctor <- function(args, root = NULL, autoupdate = NULL) {
     all_bad <- unique(c(scan$zero, scan$xml))
     removed <- 0L
     for (fp in all_bad) {
-      tryCatch({ file.remove(fp); removed <- removed + 1L }, error = function(e) NULL)
+      tryCatch(
+        {
+          file.remove(fp)
+          removed <- removed + 1L
+        },
+        error = function(e) NULL
+      )
     }
     cat(sprintf("Removed %d problematic file(s).\n", removed))
     tf_cache_refresh(client$cache)

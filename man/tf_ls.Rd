@@ -30,6 +30,12 @@ Use `NULL` to *exclude* an entity — for example, `desc = NULL` returns only
 files that do **not** have a `desc-` key in their filename.  This matches the
 Python client's behaviour where `desc=None` filters out files with a
 description tag.
+
+Tissue priors can be queried with `label` aliases `gray`, `grey`, `white`,
+and `csf` (or `gm`/`wm`) — these are normalized to `GM`, `WM`, and `CSF`.
+For templates that store tissue priors under `desc-*` instead of `label-*`,
+a tissue-prior label query automatically falls back to `desc` if no files
+are found and `desc` was not explicitly provided.
 }
 \examples{
 \dontrun{

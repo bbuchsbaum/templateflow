@@ -1,3 +1,29 @@
+# templateflow (development)
+
+## Breaking changes
+
+* `tf_get()` now defaults to `raise_empty = TRUE` so that queries with no
+  matching files error loudly instead of silently returning `character(0)`.
+  Pass `raise_empty = FALSE` to restore the previous lenient behaviour.
+
+## New features
+
+* `tf_get(dest = ...)` copies fetched files into a user-supplied directory,
+  preserving the `tpl-<id>/...` BIDS sub-path. The cache remains the canonical
+  store; `dest` receives a snapshot copy.
+* `tf_describe(template)` summarises a template: name, citations, and the
+  BIDS entities (with their unique values) actually available for it. Useful
+  for discovering valid `desc`, `label`, `resolution`, ... values before
+  building a query.
+* `tf_entities(template = ...)` (new arguments) returns only the entities
+  present for a given template. Combined with `values = TRUE`, returns a
+  named list of unique values per entity.
+* When the local skeleton index is missing or unreadable, `tf_ls()` and
+  `tf_get()` now raise an actionable cache error pointing the user at
+  `tf_cache_update()` instead of silently returning empty results.
+* The first-run skeleton sync no longer leaves the cache in a "synced but
+  empty" state when extraction fails: a subsequent call retries.
+
 # templateflow 0.1.0
 
 ## Breaking changes

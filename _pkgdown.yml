@@ -1,4 +1,4 @@
+url: https://bbuchsbaum.github.io/templateflow/
 template:
   bootstrap: 5
-build:
-  articles: false
+  package: albersdown

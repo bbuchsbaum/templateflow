@@ -37,9 +37,9 @@ test_that("tf_read_file returns path for unknown extensions", {
 })
 
 test_that("tf_read_file returns path when NIfTI reader unavailable", {
-  skip_if(requireNamespace("RNifti", quietly = TRUE) ||
-          requireNamespace("oro.nifti", quietly = TRUE),
-          "NIfTI reader is available")
+  has_reader <- requireNamespace("RNifti", quietly = TRUE) ||
+    requireNamespace("oro.nifti", quietly = TRUE)
+  skip_if(has_reader, "NIfTI reader is available")
 
   tmp <- tempfile(fileext = ".nii.gz")
   on.exit(unlink(tmp), add = TRUE)

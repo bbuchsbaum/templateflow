@@ -114,14 +114,29 @@ tf_cli_help_main <- function() {
 tf_cli_help_command <- function(cmd) {
   help_text <- list(
     config = "Usage: templateflow config [--json] [--show-cache]\n\nShow current TemplateFlow settings.",
-    ls = "Usage: templateflow ls <template> [entity flags]\n\nList files matching the given template and entity filters.",
-    get = "Usage: templateflow get <template> [entity flags]\n\nDownload (if needed) and list files matching the template and filters.",
-    wipe = "Usage: templateflow wipe [--force]\n\nDelete the entire template cache. Requires confirmation unless --force is used.",
-    update = "Usage: templateflow update [--local] [--overwrite|--no-overwrite]\n\nUpdate the skeleton archive from remote or bundled source.",
+    ls = paste0(
+      "Usage: templateflow ls <template> [entity flags]\n\n",
+      "List files matching the given template and entity filters."
+    ),
+    get = paste0(
+      "Usage: templateflow get <template> [entity flags]\n\n",
+      "Download (if needed) and list files matching the template and filters."
+    ),
+    wipe = paste0(
+      "Usage: templateflow wipe [--force]\n\n",
+      "Delete the entire template cache. Requires confirmation unless --force is used."
+    ),
+    update = paste0(
+      "Usage: templateflow update [--local] [--overwrite|--no-overwrite]\n\n",
+      "Update the skeleton archive from remote or bundled source."
+    ),
     meta = "Usage: templateflow meta <template> [--field <name>] [--json]\n\nDisplay metadata for the given template.",
     cite = "Usage: templateflow cite <template> [--bibtex]\n\nPrint citation references for the given template.",
     refresh = "Usage: templateflow refresh\n\nRe-index the cache layout without downloading.",
-    doctor = "Usage: templateflow doctor [--fix]\n\nScan cache for zero-byte and XML error files. Use --fix to remove them."
+    doctor = paste0(
+      "Usage: templateflow doctor [--fix]\n\n",
+      "Scan cache for zero-byte and XML error files. Use --fix to remove them."
+    )
   )
   msg <- help_text[[cmd]]
   if (is.null(msg)) {

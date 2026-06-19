@@ -104,6 +104,7 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
   cache <- tf_cache_ensure(client$cache)
   client$cache <- cache
   if (default_client) tf_set_client(client)
+  tf_assert_layout_nonempty(cache)
   filters <- list(...)
   if (!missing(template)) {
     filters$template <- template %||% NULL
@@ -127,7 +128,7 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
   has_label <- "label" %in% names(filters) && !is.null(filters$label)
   has_desc <- "desc" %in% names(filters) && !is.null(filters$desc)
   suffix_fallback <- "suffix" %in% names(filters) &&
-    tf_suffix_allows_label_desc_fallback(filters$suffix)
+    tf_suffix_allows_desc_fallback(filters$suffix)
   label_desc_fallback <- tf_is_tissue_label_query(filters$label) || suffix_fallback
 
   if (!has_result && has_label && !has_desc && label_desc_fallback) {
@@ -155,10 +156,17 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
 #' to exclude files containing that entity.
 #'
 #' @inheritParams tf_ls
-#' @param raise_empty If `TRUE`, error when no files match the query.
+#' @param raise_empty If `TRUE` (the default), error when no files match the
+#'   query. Set to `FALSE` to silently return an empty character vector.
+#'   Defaulted to `TRUE` so that typo'd queries fail loudly rather than
+#'   producing surprising empty results.
 #' @param read If `TRUE`, read downloaded files into R objects using appropriate
 #'   readers (NIfTI via RNifti, GIFTI via gifti, JSON, TSV). Requires optional
 #'   packages for neuroimaging formats.
+#' @param dest Optional path to a directory. When supplied, fetched files are
+#'   copied under `dest` preserving their `tpl-<id>/...` BIDS sub-path, and the
+#'   returned paths point inside `dest`. The cache remains the canonical store;
+#'   `dest` receives a snapshot copy.
 #' @return Path string, character vector, or R object(s) if `read = TRUE`.
 #'   When a single file matches, a scalar path (or single R object) is returned;
 #'   when multiple files match, a character vector (or list of R objects).
@@ -166,12 +174,15 @@ tf_ls <- function(client = NULL, template, as_df = FALSE, ...) {
 #' \dontrun{
 #' path <- tf_get(template = "MNI152Lin", resolution = 1, suffix = "T1w")
 #' img <- tf_get(template = "MNI152Lin", resolution = 1, suffix = "T1w", read = TRUE)
+#' tf_get(template = "MNI152Lin", resolution = 1, suffix = "T1w", dest = "./templates")
 #' }
 #' @export
-tf_get <- function(client = NULL, template, raise_empty = FALSE, read = FALSE, ...) {
+tf_get <- function(client = NULL, template, raise_empty = TRUE, read = FALSE,
+                   dest = NULL, ...) {
   paths <- tf_ls(client, template, ...)
-  if (raise_empty && !length(paths)) {
-    tf_abort_not_found("No results found")
+  if (!length(paths)) {
+    if (isTRUE(raise_empty)) tf_abort_not_found("No results found")
+    return(paths)
   }
   tf_truncate_s3_errors(paths)
   client <- client %||% tf_client()
@@ -180,6 +191,9 @@ tf_get <- function(client = NULL, template, raise_empty = FALSE, read = FALSE, .
   if (length(missing)) {
     tf_abort_cache(paste0("Could not fetch template files: ", paste(missing, collapse = ", ")))
   }
+  if (!is.null(dest)) {
+    paths <- tf_copy_to_dest(paths, dest, root = client$cache$config$root)
+  }
   if (isTRUE(read)) {
     objects <- lapply(paths, tf_read_file)
     if (length(objects) == 1) return(objects[[1]])
@@ -187,6 +201,33 @@ tf_get <- function(client = NULL, template, raise_empty = FALSE, read = FALSE, .
   }
   if (length(paths) == 1) return(paths[[1]])
   paths
+}
+
+# Copy fetched files into a user-supplied directory, preserving the
+# tpl-<id>/... layout under it. Returns the new paths.
+tf_copy_to_dest <- function(paths, dest, root) {
+  dest <- normalizePath(dest, mustWork = FALSE)
+  dir.create(dest, recursive = TRUE, showWarnings = FALSE)
+  root_norm <- normalizePath(root, mustWork = FALSE)
+  out <- character(length(paths))
+  for (i in seq_along(paths)) {
+    src <- normalizePath(paths[[i]], mustWork = FALSE)
+    rel <- if (startsWith(src, root_norm)) {
+      sub("^/+", "", substring(src, nchar(root_norm) + 1))
+    } else {
+      basename(src)
+    }
+    target <- file.path(dest, rel)
+    dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+    if (!file.exists(target) || file.info(target)$size != file.info(src)$size) {
+      ok <- file.copy(src, target, overwrite = TRUE, copy.date = TRUE)
+      if (!isTRUE(ok)) {
+        tf_abort_cache(paste0("Could not copy ", src, " to ", target))
+      }
+    }
+    out[i] <- normalizePath(target, winslash = "/", mustWork = FALSE)
+  }
+  out
 }
 
 #' Batch prefetch template files
@@ -300,7 +341,6 @@ tf_get_citations <- function(client = NULL, template, bibtex = FALSE) {
   if (is.null(refs)) return(character(0))
   if (is.list(refs)) refs <- unlist(refs, use.names = FALSE)
   if (!bibtex) return(refs)
-  default_client <- is.null(client)
   client <- client %||% tf_client()
   vapply(refs, tf_to_bibtex, character(1), timeout = client$cache$config$timeout)
 }

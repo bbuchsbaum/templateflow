@@ -1,0 +1,13 @@
+templateflow R client
+Copyright 2025 Bradley Buchsbaum
+
+This product is an R port inspired by the TemplateFlow Python client
+(https://github.com/templateflow/python-client), which is copyright
+The NiPreps Developers and licensed under the Apache License, Version 2.0.
+
+The following files are redistributed from the Python client without
+modification:
+
+  inst/extdata/config.json
+  inst/extdata/templateflow-skel.zip
+  inst/extdata/templateflow-skel.md5

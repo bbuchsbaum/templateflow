@@ -26,7 +26,7 @@ tf_is_tissue_label_query <- function(x) {
   all(!is.na(normalized) & normalized %in% c("GM", "WM", "CSF"))
 }
 
-tf_suffix_allows_label_desc_fallback <- function(x) {
+tf_suffix_allows_desc_fallback <- function(x) {
   if (is.null(x) || !length(x)) return(FALSE)
   vals <- tolower(as.character(x))
   any(!is.na(vals) & vals %in% c("mask", "probseg"))

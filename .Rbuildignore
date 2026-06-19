@@ -9,4 +9,8 @@
 ^AGENTS\.md$
 ^_pkgdown\.yml$
 ^docs$
+^pkgdown$
+^\.albersdown\.bak$
+^\.github$
 ^\.rcmdcheck_result\.rds$
+^\.lintr$

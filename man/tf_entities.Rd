@@ -4,15 +4,36 @@
 \alias{tf_entities}
 \title{List available BIDS entity names}
 \usage{
-tf_entities()
+tf_entities(client = NULL, template = NULL, values = FALSE)
+}
+\arguments{
+\item{client}{A `TemplateFlowClient` (optional; default global client). Only
+used when `template` is given.}
+
+\item{template}{Optional template identifier. If supplied, restricts the
+result to entities present for that template.}
+
+\item{values}{If `TRUE`, return a named list of unique entity values
+instead of a character vector of names. Requires `template`.}
 }
 \value{
-A character vector of entity names sorted alphabetically.
+A character vector of entity names, or (when `values = TRUE`) a
+  named list of unique values per entity.
 }
 \description{
 Returns the entity names recognised by TemplateFlow for filtering
 template files (e.g. `resolution`, `atlas`, `suffix`).
 }
+\details{
+When `template` is supplied, returns only the entities that are actually
+present for that template (useful for discovering which filters make
+sense). When `values = TRUE`, returns a named list of the unique values
+observed for each entity instead of just the names.
+}
 \examples{
 tf_entities()
+\dontrun{
+tf_entities(template = "MNI152Lin")
+tf_entities(template = "MNI152Lin", values = TRUE)$desc
+}
 }

@@ -42,15 +42,13 @@ tf_extdata_path <- function(name) {
   tf_abort_cache(paste0("Bundled file not found: ", name))
 }
 
-tf_default_config <- function(root = NULL,
-                              s3_root = Sys.getenv("TEMPLATEFLOW_S3_ROOT",
-                                unset = "https://templateflow.s3.amazonaws.com"),
-                              autoupdate = tf_env_bool("TEMPLATEFLOW_AUTOUPDATE", TRUE),
-                              timeout = as.numeric(Sys.getenv("TEMPLATEFLOW_TIMEOUT",
-                                unset = "10")),
-                              use_datalad = tf_env_bool("TEMPLATEFLOW_USE_DATALAD", FALSE),
-                              origin = Sys.getenv("TEMPLATEFLOW_ORIGIN",
-                                unset = "https://github.com/templateflow/templateflow.git")) {
+tf_default_config <- function(
+    root = NULL,
+    s3_root = Sys.getenv("TEMPLATEFLOW_S3_ROOT", unset = "https://templateflow.s3.amazonaws.com"),
+    autoupdate = tf_env_bool("TEMPLATEFLOW_AUTOUPDATE", TRUE),
+    timeout = as.numeric(Sys.getenv("TEMPLATEFLOW_TIMEOUT", unset = "10")),
+    use_datalad = tf_env_bool("TEMPLATEFLOW_USE_DATALAD", FALSE),
+    origin = Sys.getenv("TEMPLATEFLOW_ORIGIN", unset = "https://github.com/templateflow/templateflow.git")) {
   list(
     root = normalizePath(root %||% tf_home(), mustWork = FALSE),
     s3_root = s3_root,

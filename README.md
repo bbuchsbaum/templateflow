@@ -1,5 +1,10 @@
 # templateflow
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/bbuchsbaum/templateflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/bbuchsbaum/templateflow/actions/workflows/R-CMD-check.yaml)
+[![pkgdown](https://github.com/bbuchsbaum/templateflow/actions/workflows/pkgdown.yaml/badge.svg)](https://bbuchsbaum.github.io/templateflow/)
+<!-- badges: end -->
+
 R client for the [TemplateFlow](https://www.templateflow.org/) archive of neuroimaging templates.
 
 ## Installation
@@ -55,3 +60,8 @@ Rscript -e 'templateflow::tf_cli()' get MNI152Lin --res 1 --suffix T1w
 ## License
 
 Apache License 2.0
+
+<!-- albersdown:theme-note:start -->
+## Albers theme
+This package uses the albersdown theme. Existing vignette theme hooks are replaced so `albers.css` and local `albers.js` render consistently on CRAN and GitHub Pages. The palette family is provided via `params$family` (default 'teal'). The pkgdown site uses `template: { package: albersdown }`.
+<!-- albersdown:theme-note:end -->
