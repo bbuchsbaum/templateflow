@@ -1,0 +1,299 @@
+# Getting started with templateflow
+
+## Why templateflow?
+
+Neuroimaging analyses almost always need a reference brain template – an
+MNI152 T1w image, an atlas parcellation, a surface mesh. The
+[TemplateFlow](https://www.templateflow.org/) archive collects these
+resources in a single, version-controlled repository with consistent
+[BIDS](https://bids-specification.readthedocs.io/) naming.
+
+The **templateflow** R package gives you direct access to this archive
+without leaving R. There is no dependency on Python or reticulate –
+files are fetched on demand from the public S3 bucket and cached
+locally.
+
+``` r
+
+library(templateflow)
+
+# one line to get the MNI152 1 mm T1w image
+path <- tf_get(template = "MNI152Lin", resolution = 1, suffix = "T1w")
+```
+
+## Installation
+
+Install the development version from GitHub:
+
+``` r
+
+install.packages("remotes")
+remotes::install_github("bbuchsbaum/templateflow")
+```
+
+For reading NIfTI files directly into R, you will also want one of the
+optional neuroimaging packages:
+
+``` r
+
+install.packages("RNifti")   # lightweight NIfTI reader (recommended)
+# or
+install.packages("oro.nifti") # alternative NIfTI reader
+install.packages("gifti")     # for GIFTI surface files
+```
+
+## Discovering templates
+
+Load the package and see which templates are available:
+
+``` r
+
+library(templateflow)
+
+tf_templates()
+#> [1] "Fischer344"        "MNI152Lin"         "MNI152NLin2009cAsym"
+#> [4] "MNI152NLin2009cSym" "MNI152NLin6Asym"  "MNI152NLin6Sym"
+#> [7] "MNIInfant"         "MNIPediatricAsym"  "NKI"
+#> ...
+```
+
+The first call initialises a local cache (by default at
+`~/.cache/templateflow`) and downloads a lightweight skeleton listing
+every file in the archive. Subsequent calls reuse the cache instantly.
+
+> **First run.** If
+> [`tf_ls()`](https://bbuchsbaum.github.io/templateflow/reference/tf_ls.md)
+> or
+> [`tf_get()`](https://bbuchsbaum.github.io/templateflow/reference/tf_get.md)
+> raises an error mentioning that “the cache appears empty,” the
+> skeleton failed to populate (often a transient network issue). Run
+> [`tf_cache_update()`](https://bbuchsbaum.github.io/templateflow/reference/tf_cache_update.md)
+> to fetch it explicitly, or set `TEMPLATEFLOW_HOME` to point at an
+> existing cache that already has the skeleton.
+
+To see what a specific template offers — its citations and the BIDS
+entity values you can filter on — use
+[`tf_describe()`](https://bbuchsbaum.github.io/templateflow/reference/tf_describe.md):
+
+``` r
+
+tf_describe("MNI152Lin")
+#> <TemplateFlow description: MNI152Lin>
+#>   Name: MNI ICBM 152 linear
+#>   References: 1 entry(ies)
+#>     - http://nist.mni.mcgill.ca/?p=858
+#>
+#>   Entities present:
+#>     desc       : brain, head, ...
+#>     resolution : 1, 2
+#>     suffix     : T1w, T2w, mask, probseg, ...
+```
+
+## Listing files for a template
+
+Use
+[`tf_ls()`](https://bbuchsbaum.github.io/templateflow/reference/tf_ls.md)
+to see what files a template contains. You can filter by any BIDS entity
+– `resolution`, `suffix`, `atlas`, `desc`, `extension`, and more:
+
+``` r
+
+# all files for MNI152Lin
+tf_ls(template = "MNI152Lin")
+
+# only the 1 mm T1w image
+tf_ls(template = "MNI152Lin", resolution = 1, suffix = "T1w")
+```
+
+To see the results as a structured data frame instead of file paths,
+pass `as_df = TRUE`:
+
+``` r
+
+tf_ls(template = "MNI152Lin", as_df = TRUE)
+#> # A tibble: 18 x 9
+#>    path                template   resolution suffix extension ...
+```
+
+You can check which entity names are available for filtering, either
+globally or for a specific template:
+
+``` r
+
+# all entity names recognised by templateflow
+tf_entities()
+#>  [1] "atlas"     "cohort"    "density"   "desc"      "extension"
+#>  [6] "hemi"      "label"     "resolution" "roi"      "scale"
+#> [11] "segmentation" "space"  "suffix"    "template"
+
+# only entities present for this template
+tf_entities(template = "MNI152Lin")
+#> [1] "desc" "extension" "resolution" "suffix"
+
+# unique values per entity (great for figuring out e.g. which `desc` to use)
+tf_entities(template = "MNI152Lin", values = TRUE)$desc
+#> [1] "brain" "head"
+```
+
+## Fetching files
+
+[`tf_get()`](https://bbuchsbaum.github.io/templateflow/reference/tf_get.md)
+works like
+[`tf_ls()`](https://bbuchsbaum.github.io/templateflow/reference/tf_ls.md)
+but also downloads any files that are not yet cached locally. It returns
+the local file path(s):
+
+``` r
+
+# download (if needed) and return the local path
+path <- tf_get(template = "MNI152Lin", resolution = 1, suffix = "T1w")
+path
+#> [1] "/Users/you/.cache/templateflow/tpl-MNI152Lin/tpl-MNI152Lin_res-01_T1w.nii.gz"
+```
+
+A progress bar appears when multiple files are being downloaded.
+
+By default
+[`tf_get()`](https://bbuchsbaum.github.io/templateflow/reference/tf_get.md)
+raises an error if the query matches no files (`raise_empty = TRUE`).
+Pass `raise_empty = FALSE` if you would rather get back an empty
+character vector for queries that can legitimately return zero results.
+
+To get a copy of the files in a directory of your choosing (handy for
+shipping templates alongside a project), pass `dest`:
+
+``` r
+
+tf_get(
+  template = "MNI152Lin",
+  resolution = 1,
+  suffix = "T1w",
+  dest = "./templates"
+)
+#> [1] "./templates/tpl-MNI152Lin/tpl-MNI152Lin_res-01_T1w.nii.gz"
+```
+
+The cache remains the canonical store; `dest` receives a snapshot copy
+preserving the BIDS sub-path.
+
+### Reading files directly into R
+
+Pass `read = TRUE` to load the file into an R object automatically.
+NIfTI files are read with RNifti (or oro.nifti), GIFTI with gifti, JSON
+and TSV with their standard readers:
+
+``` r
+
+img <- tf_get(
+  template = "MNI152Lin",
+  resolution = 1,
+  suffix = "T1w",
+  read = TRUE
+)
+
+img
+#> Image array of mode "double" (182 x 218 x 182)
+#> - voxel dimensions: 1 x 1 x 1 mm
+```
+
+## Template metadata and citations
+
+Every template ships with a `template_description.json` file containing
+its name, species, reference space, and citation links. You can access
+this with
+[`tf_get_metadata()`](https://bbuchsbaum.github.io/templateflow/reference/tf_get_metadata.md):
+
+``` r
+
+meta <- tf_get_metadata(template = "MNI152NLin2009cAsym")
+meta$Name
+#> [1] "MNI152NLin2009cAsym"
+
+meta$Species
+#> [1] "Homo sapiens"
+```
+
+For citation information,
+[`tf_get_citations()`](https://bbuchsbaum.github.io/templateflow/reference/tf_get_citations.md)
+returns reference URLs or, with `bibtex = TRUE`, BibTeX entries you can
+paste directly into your bibliography:
+
+``` r
+
+tf_get_citations(template = "MNI152NLin2009cAsym")
+#> [1] "https://doi.org/10.1016/j.neuroimage.2010.07.033"
+
+tf_get_citations(template = "MNI152NLin2009cAsym", bibtex = TRUE)
+```
+
+## Using the global client
+
+You do not need to create or pass a client object explicitly. All
+`tf_*()` functions use a default global client behind the scenes. If you
+do want to customise settings (e.g. a non-default cache location),
+create a client once and set it as the global default:
+
+``` r
+
+client <- TemplateFlowClient(root = "/data/templates")
+tf_set_client(client)
+
+# all subsequent calls use /data/templates as the cache
+tf_templates()
+```
+
+## Cache management
+
+The local cache can be inspected and maintained with a few helpers:
+
+``` r
+
+# how big is the cache?
+tf_cache_stats()
+#> $cache_files
+#> [1] 2847
+#> $cache_size_human
+#> [1] "1.2 GB"
+
+# check for problems (zero-byte stubs, corrupted downloads)
+tf_cache_scan()
+
+# re-sync the skeleton from upstream
+tf_cache_update()
+
+# rebuild the file index without downloading anything
+tf_cache_refresh()
+
+# nuclear option: delete everything and start fresh
+tf_cache_wipe()
+```
+
+## Configuration
+
+templateflow respects several environment variables:
+
+| Variable | Default | Purpose |
+|----|----|----|
+| `TEMPLATEFLOW_HOME` | `~/.cache/templateflow` | Cache directory |
+| `TEMPLATEFLOW_AUTOUPDATE` | `on` | Check for skeleton updates on first use |
+| `TEMPLATEFLOW_TIMEOUT` | `10` (seconds) | Network timeout for downloads |
+| `TEMPLATEFLOW_USE_DATALAD` | `off` | Use DataLad backend instead of S3 |
+
+Set these before loading the package, or pass equivalent arguments to
+[`TemplateFlowClient()`](https://bbuchsbaum.github.io/templateflow/reference/TemplateFlowClient.md).
+
+## Next steps
+
+- Run
+  [`?tf_get`](https://bbuchsbaum.github.io/templateflow/reference/tf_get.md)
+  and
+  [`?tf_ls`](https://bbuchsbaum.github.io/templateflow/reference/tf_ls.md)
+  for the full list of entity filters.
+- Use
+  [`tf_entities()`](https://bbuchsbaum.github.io/templateflow/reference/tf_entities.md)
+  to discover available BIDS entity names.
+- For scripting and shell pipelines, see
+  [`?tf_cli`](https://bbuchsbaum.github.io/templateflow/reference/tf_cli.md)
+  which exposes the same functionality as a command-line interface.
+- Visit <https://www.templateflow.org/> for documentation on the
+  templates themselves.

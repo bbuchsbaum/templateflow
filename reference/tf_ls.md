@@ -1,0 +1,59 @@
+# List template assets
+
+Query the TemplateFlow cache for files matching a template and optional
+entity filters.
+
+## Usage
+
+``` r
+tf_ls(client = NULL, template, as_df = FALSE, ...)
+```
+
+## Arguments
+
+- client:
+
+  A \`TemplateFlowClient\` (optional; default global client).
+
+- template:
+
+  Template identifier (e.g., \`"MNI152Lin"\`).
+
+- as_df:
+
+  If \`TRUE\`, return a data frame instead of file paths.
+
+- ...:
+
+  Entity filters (resolution, suffix, atlas, desc, hemi, space, density,
+  label, segmentation, cohort, scale, roi, extension, etc.). Pass
+  \`NULL\` to exclude files containing that entity.
+
+## Value
+
+Character vector of file paths, or a data frame if \`as_df = TRUE\`.
+
+## Details
+
+Entity filters are passed via \`...\`. Use \`NULL\` to \*exclude\* an
+entity — for example, \`desc = NULL\` returns only files that do
+\*\*not\*\* have a \`desc-\` key in their filename. This matches the
+Python client's behaviour where \`desc=None\` filters out files with a
+description tag.
+
+Tissue priors can be queried with \`label\` aliases \`gray\`, \`grey\`,
+\`white\`, and \`csf\` (or \`gm\`/\`wm\`) — these are normalized to
+\`GM\`, \`WM\`, and \`CSF\`. For templates that store tissue priors
+under \`desc-\*\` instead of \`label-\*\`, a tissue-prior label query
+automatically falls back to \`desc\` if no files are found and \`desc\`
+was not explicitly provided.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+tf_ls(template = "MNI152Lin", resolution = 1, suffix = "T1w")
+tf_ls(template = "MNI152Lin", extension = ".nii.gz")
+tf_ls(template = "MNI152Lin", as_df = TRUE)
+} # }
+```
