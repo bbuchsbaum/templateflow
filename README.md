@@ -3,6 +3,8 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/bbuchsbaum/templateflow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/bbuchsbaum/templateflow/actions/workflows/R-CMD-check.yaml)
 [![pkgdown](https://github.com/bbuchsbaum/templateflow/actions/workflows/pkgdown.yaml/badge.svg)](https://bbuchsbaum.github.io/templateflow/)
+[![test-coverage](https://github.com/bbuchsbaum/templateflow/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/bbuchsbaum/templateflow/actions/workflows/test-coverage.yaml)
+[![Codecov test coverage](https://codecov.io/gh/bbuchsbaum/templateflow/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bbuchsbaum/templateflow?branch=main)
 <!-- badges: end -->
 
 R client for the [TemplateFlow](https://www.templateflow.org/) archive of neuroimaging templates.
