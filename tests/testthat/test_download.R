@@ -20,13 +20,23 @@ local_mock_req_perform <- function(handler, env = parent.frame()) {
   )
 }
 
-test_that("tf_s3_url builds HTTPS object URLs from cache-relative paths", {
-  root <- tempfile("tf-s3-url-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+# Build cache-relative paths from the canonical config root. On macOS,
+# tempfile() may yield /var/folders/... while tf_default_config() stores
+# normalizePath() → /private/var/folders/...; tf_s3_url()/tf_relpath() require
+# the filepath to live under cfg$root.
+local_cfg_root <- function(prefix, ...) {
+  staging <- tempfile(prefix)
+  dir.create(staging)
+  cfg <- tf_default_config(root = staging, ...)
+  list(cfg = cfg, root = cfg$root)
+}
 
-  cfg <- tf_default_config(root = root, s3_root = "https://example.test/tpl")
-  fp <- file.path(root, "tpl-Demo", "tpl-Demo_T1w.nii.gz")
+test_that("tf_s3_url builds HTTPS object URLs from cache-relative paths", {
+  setup <- local_cfg_root("tf-s3-url-", s3_root = "https://example.test/tpl")
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
+
+  fp <- file.path(cfg$root, "tpl-Demo", "tpl-Demo_T1w.nii.gz")
   expect_equal(
     tf_s3_url(cfg, fp),
     "https://example.test/tpl/tpl-Demo/tpl-Demo_T1w.nii.gz"
@@ -35,12 +45,11 @@ test_that("tf_s3_url builds HTTPS object URLs from cache-relative paths", {
 
 test_that("tf_download_file atomically writes on mocked HTTPS success", {
   local_force_https_fallback()
-  root <- tempfile("tf-dl-ok-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-dl-ok-", timeout = 1)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1)
-  fp <- file.path(root, "tpl-Demo", "payload.bin")
+  fp <- file.path(cfg$root, "tpl-Demo", "payload.bin")
   payload <- charToRaw("templateflow-bytes")
 
   local_mock_req_perform(function(req, path = NULL, ...) {
@@ -59,12 +68,11 @@ test_that("tf_download_file atomically writes on mocked HTTPS success", {
 
 test_that("tf_download_file retries HTTP errors then succeeds", {
   local_force_https_fallback()
-  root <- tempfile("tf-dl-retry-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-dl-retry-", timeout = 1)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1)
-  fp <- file.path(root, "tpl-Demo", "retry.bin")
+  fp <- file.path(cfg$root, "tpl-Demo", "retry.bin")
   payload <- charToRaw("after-retry")
   attempts <- 0L
 
@@ -86,12 +94,11 @@ test_that("tf_download_file retries HTTP errors then succeeds", {
 
 test_that("tf_download_file aborts after exhausting HTTP error retries", {
   local_force_https_fallback()
-  root <- tempfile("tf-dl-http-fail-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-dl-http-fail-", timeout = 1)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1)
-  fp <- file.path(root, "tpl-Demo", "missing.bin")
+  fp <- file.path(cfg$root, "tpl-Demo", "missing.bin")
   attempts <- 0L
 
   local_mock_req_perform(function(req, path = NULL, ...) {
@@ -110,12 +117,11 @@ test_that("tf_download_file aborts after exhausting HTTP error retries", {
 
 test_that("tf_download_file aborts after transport errors", {
   local_force_https_fallback()
-  root <- tempfile("tf-dl-net-fail-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-dl-net-fail-", timeout = 1)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1)
-  fp <- file.path(root, "tpl-Demo", "offline.bin")
+  fp <- file.path(cfg$root, "tpl-Demo", "offline.bin")
   attempts <- 0L
 
   local_mock_req_perform(function(req, path = NULL, ...) {
@@ -132,32 +138,30 @@ test_that("tf_download_file aborts after transport errors", {
 })
 
 test_that("tf_fetch_files no-ops for empty or already-present files", {
-  root <- tempfile("tf-fetch-noop-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-fetch-noop-")
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root)
   cache <- TemplateFlowCache(config = cfg)
 
   expect_true(tf_fetch_files(cache, character()))
 
-  present <- file.path(root, "already.bin")
+  present <- file.path(cfg$root, "already.bin")
   writeBin(charToRaw("cached"), present)
   expect_true(tf_fetch_files(cache, present))
 })
 
 test_that("tf_fetch_files downloads missing zero-byte stubs via mocked HTTPS", {
   local_force_https_fallback()
-  root <- tempfile("tf-fetch-missing-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-fetch-missing-", timeout = 1, use_datalad = FALSE)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1, use_datalad = FALSE)
   cache <- TemplateFlowCache(config = cfg)
 
   missing <- c(
-    file.path(root, "tpl-Demo", "a.bin"),
-    file.path(root, "tpl-Demo", "b.bin")
+    file.path(cfg$root, "tpl-Demo", "a.bin"),
+    file.path(cfg$root, "tpl-Demo", "b.bin")
   )
   dir.create(dirname(missing[[1]]), recursive = TRUE, showWarnings = FALSE)
   file.create(missing)
@@ -173,13 +177,12 @@ test_that("tf_fetch_files downloads missing zero-byte stubs via mocked HTTPS", {
 
 test_that("tf_fetch_files falls back to S3 when DataLad get fails", {
   local_force_https_fallback()
-  root <- tempfile("tf-fetch-datalad-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
+  setup <- local_cfg_root("tf-fetch-datalad-", timeout = 1, use_datalad = TRUE)
+  cfg <- setup$cfg
+  on.exit(unlink(setup$root, recursive = TRUE, force = TRUE), add = TRUE)
 
-  cfg <- tf_default_config(root = root, timeout = 1, use_datalad = TRUE)
   cache <- TemplateFlowCache(config = cfg)
-  missing <- file.path(root, "tpl-Demo", "dl.bin")
+  missing <- file.path(cfg$root, "tpl-Demo", "dl.bin")
   dir.create(dirname(missing), recursive = TRUE, showWarnings = FALSE)
   file.create(missing)
 
